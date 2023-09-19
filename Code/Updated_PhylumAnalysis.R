@@ -1,5 +1,5 @@
 #Set working directory
-setwd("/Users/mikemartinez/Desktop/AJB6_KnockOut/Results/Microbiome/")
+setwd("/Users/mikemartinez/Desktop/AJB6_Microbiome/Phylum_Level/")
 
 #Load libraries
 library("ggplot2")
@@ -108,6 +108,44 @@ Simpsons_boxplot <- ggplot(alphaDiv, aes(x = Strain, y = Simpson, fill = Strain)
   theme(legend.position = "bottom")
 Simpsons_boxplot
 ggsave("Simpsons_PhylumLevel_diversity.pdf", Simpsons_boxplot, width = 12, height = 8)
+
+#Read in phylum long data and alpha div data
+long <- read.csv("newPhylum.long.csv", header = TRUE, sep = ",")
+alpha <- read.csv("alphaDiversity_Metrics_PhylumLevel.csv", header = TRUE, sep = ",")
+
+#Testing for significance of individual taxa
+comp <- long %>%
+  group_by(Sample_ID) %>%
+  group_by(Sample_ID) %>%
+  ungroup() %>%
+  inner_join(., alpha, by = "Sample_ID")
+
+library(broom)
+#Get the significant families
+sig_phyla <- comp %>%
+  nest(data = -taxon) %>%
+  mutate(test = map(.x = data, ~aov(count~Strain.x + Genotype.x, data = .x) %>%
+                      tidy)) %>%
+  unnest(test) %>%
+  mutate(p.adj = p.adjust(p.value, method = "BH")) %>%
+  filter(p.adj < 0.05) %>%
+  select(taxon, p.adj)
+write.csv(sig_phyla, file = "significant_phyla.csv")
+
+#Get the mean frequency
+mean_freqs.filt <- long %>%
+  group_by(Sample_ID, taxon) %>%
+  summarise(phyCount = sum(count),
+            .groups = 'drop') %>%
+  group_by(Sample_ID) %>%
+  summarise(phyFreq = phyCount / sum(phyCount),
+            Phylum = taxon,
+            .groups = 'drop') %>%
+  group_by(Phylum) %>%
+  summarise(mean = mean(phyFreq),
+            .groups = 'drop') %>%
+  arrange(desc(mean))
+print(mean_freqs.filt)
 
 
 

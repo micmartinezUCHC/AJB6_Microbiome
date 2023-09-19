@@ -11,10 +11,10 @@ library("RColorBrewer")
 library("cowplot")
 
 #Set working directory
-setwd("/Users/mikemartinez/Desktop/AJB6_KnockOut/Results/Microbiome/Family_Analysis/")
+setwd("/Users/mikemartinez/Desktop/AJB6_Microbiome/Family_Analysis/")
 
 #Read in the raw family counts
-familyCounts <- read.csv("/Users/mikemartinez/Desktop/AJB6_KnockOut/Results/Microbiome/Family_Analysis/AJB6_Microbiome_FamilyLevel.csv", header = TRUE, sep = ",")
+familyCounts <- read.csv("/Users/mikemartinez/Desktop/AJB6_Microbiome/Family_Analysis/AJB6_Microbiome_FamilyLevel.csv", header = TRUE, sep = ",")
 
 #Remove any unknown families
 familyCounts <- familyCounts[familyCounts$taxon != "Unknown_family",]
@@ -49,11 +49,12 @@ mean_freqs <- fam.relabund.long %>%
             .groups = 'drop') %>%
   arrange(desc(mean))
 print(mean_freqs)
+write.csv(mean_freqs, file = "Mean_Frequency_relAbundance_FamilyLevel.csv")
 
 
 #Let's take the top 10 taxa from the mean frequency list
-top10Fams <- mean_freqs$Family[1:10]
-familyCounts.filt <- familyCounts[familyCounts$taxon %in% top10Fams,]
+top20Fams <- mean_freqs$Family[1:20]
+familyCounts.filt <- familyCounts[familyCounts$taxon %in% top20Fams,]
 
 #Calculate the relative abundance from this filtered dataframe
 names.filt <- familyCounts.filt$taxon
@@ -67,7 +68,11 @@ relabund.filt$taxa <- rownames(relabund.filt)
 fam.relabund.long.filt <- relabund.filt %>%
   pivot_longer(-taxa, names_to = "Sample_ID", values_to = "count") 
 fam.relabund.long.filt$Level <- "Family"
-write.csv(fam.relabund.long.filt, file = "top10_families_based_on_meanRelAbund_frequency.csv")
+write.csv(fam.relabund.long.filt, file = "top20_families_based_on_meanRelAbund_frequency.csv")
+
+
+#Read in the top 20 families data
+top20 <- read.csv("top20_families_based_on_meanRelAbund_frequency.csv", header = TRUE, sep = ",")
 
 #Get the mean frequency
 mean_freqs.filt <- fam.relabund.long.filt %>%
@@ -85,11 +90,21 @@ mean_freqs.filt <- fam.relabund.long.filt %>%
 print(mean_freqs.filt)
 
 #Convert phyla to factors with a specific order based on the order obtained above (mean frequency)
-Family_order <- c("Bacteroidaceae",
+Family_order <- c("Ruminococcaceae",
+                 "Muribaculaceae",
+                 "Erysipelotrichaceae",
+                 "Bacteroidaceae",
+                 "Rikenellaceae",
+                 "Spiroplasmataceae",
+                 "Thermoanaerobacteraceae",
+                 "Chitinophagaceae",
                  "Deferribacteraceae",
-                 "Acholeplasmataceae",
                  "Aurantimonadaceae",
+                 "Lactobacillales_unclassified",
+                 "Acholeplasmataceae",
+                 "Sterolibacteriaceae",
                  "Desulfomicrobiaceae",
+                 "Nannocystaceae",
                  "Clostridiales_Family_XVII._Incertae_Sedis",
                  "Nocardioidaceae",
                  "Polyangiaceae",
@@ -102,12 +117,32 @@ genotype_order <- c("WT", "KO")
 top10Families <- read.csv("top10_families_based_on_meanRelAbund_frequency.csv", header = TRUE, sep = ",")
 write.csv(top10Families, file = "top10_families_based_on_meanRelAbund_frequency.csv")
 
+
+Family_order <- c("Aurantimonadaceae",
+                  "Deferribacteraceae",
+                  "Acholeplasmataceae",
+                  "Nocardioidaceae",
+                  "Ectothiorhodospiraceae",
+                  "Desulfomicrobiaceae",
+                  "Polyangiaceae",
+                  "Clostridiales_Family_XVII._Incertae_Sedis",
+                  "Bacteroidaceae",
+                  "Desulfuromonadales_unclassified")
+
 #Re-order
 top10Families <- top10Families %>%
   mutate(taxa = factor(taxa, levels = Family_order))
 top10Families <- top10Families %>%
   mutate(AGE = factor(AGE, levels = Age_order))
 top10Families <- top10Families %>%
+  mutate(Genotype = factor(Genotype, levels = genotype_order))
+
+#Re-order
+top20 <- top20 %>%
+  mutate(taxa = factor(taxa, levels = Family_order))
+top20 <- top20 %>%
+  mutate(AGE = factor(AGE, levels = Age_order))
+top20 <- top20 %>%
   mutate(Genotype = factor(Genotype, levels = genotype_order))
 
 #Plot
@@ -126,6 +161,63 @@ top10Family_barplot <- ggplot(top10Families, (aes(x = Sample_ID, y = count))) +
   labs(title = "Family Level Relative Abundances")
 top10Family_barplot
 ggsave("top10Family_relAbund_barplot.pdf", top10Family_barplot, width = 12, height = 8)
+
+#Timepoint Plots
+#Need to get the families of interest subsetted from the familyLong counts data
+top10Fams <- mean_freqs$Family[1:10]
+familyCounts.filt <- familyCounts[familyCounts$taxon %in% top10Fams,]
+
+
+familyCounts.filt.long <- familyCounts.filt %>%
+  pivot_longer(-taxon, names_to = "Sample_ID", values_to = "count") 
+familyCounts.filt.long$Level <- "Family"
+write.csv(familyCounts.filt.long, file = "top10_families_long.csv")
+
+#Read in the csv
+top10TP <- read.csv("top10_families_long.csv", header = TRUE, sep = ",")
+top10TP <- top10TP %>%
+  mutate(taxa = factor(taxon, levels = Family_order))
+
+#Subset for Acholesplasmatacea
+def <- top10TP[top10TP$taxon == "Deferribacteraceae",]
+defplot <- ggplot(Ach, aes(x = Genotype, y = count, fill = taxon)) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, outlier.color = "black") +
+  #geom_point(position = position_jitter(width = 0.09), alpha = 0.5, color = "blue") +
+  facet_nested_wrap(~ Strain + Age, nrow = 1, scale = "free_x", 
+                    strip.position = "top") +
+  labs(x = "Strain", y = "Normalized Read Counts/Sample") +
+  labs(title = "Deferribacteraceae") +
+  theme_bw() +
+  theme(legend.position = "none")
+defplot
+
+
+timepoint <- ggplot(top10TP, aes(x = Genotype, y = LogCounts, fill = taxon)) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, outlier.color = "black") +
+  #geom_point(position = position_jitter(width = 0.09), alpha = 0.5, color = "blue") +
+  facet_nested_wrap(~ Strain + Age, nrow = 1, scale = "free_x", 
+                    strip.position = "top") +
+  labs(x = "Strain", y = "Normalized Read Counts/Sample") +
+  labs(title = "Top 10 Families") +
+  theme_bw() +
+  theme(legend.position = "right")
+timepoint
+
+#Plot
+top20Family_barplot <- ggplot(top20, (aes(x = Sample_ID, y = count))) +
+  geom_bar(aes(fill = taxa), stat = "identity", position = "fill", width = 1) +
+  theme(axis.text.x = element_text(angle = 90, size = 4.5),
+        strip.text = element_text(face = "bold")) +
+  facet_nested_wrap(~Strain + AGE + Genotype, nrow = 1, scale = "free_x", 
+                    strip.position = "top") +
+  scale_y_continuous(name = "Relative Abundance",
+                     labels = scales::percent) +
+  theme(strip.background = element_rect(color = "black", fill = "lightgray"),
+        panel.spacing = unit(0.2, "lines")) +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), fill = NA, color ="black") +
+  labs(title = "Top 20 Family Level Relative Abundances")
+top20Family_barplot
+ggsave("top20Family_relAbund_barplot.pdf", top20Family_barplot, width = 12, height = 8)
 
 
 famCounts.long <- familyCounts%>%
@@ -455,6 +547,9 @@ Significant_specBarplot <- ggplot(sig_specs.df, aes(x=Sample_ID, y = count)) +
   guides(fill = guide_legend(ncol = 4))
 Significant_specBarplot
 ggsave("StatisticallySignificant_speciesRelAbund.pdf", Significant_specBarplot, width = 32, height = 8)
+
+
+
 
 
 

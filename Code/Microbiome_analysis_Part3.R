@@ -93,7 +93,7 @@ ggsave("Prevotella_marshii_timepoint.pdf", marshii, width = 12, height = 8)
 
 
 #Read in Akkermansia muciniphila data
-akk <- read.csv("Akkermansia_muciniphila.csv", header = TRUE, sep = ",")
+akk <- read.csv("/users/mikemartinez/Desktop/AJB6_Microbiome/Species_analysis/Species_timepoint_Plots/Akkermansia_muciniphila.csv", header = TRUE, sep = ",")
 #Re-order
 akk <- akk %>%
   mutate(Age = factor(Age, levels = Age_order))
@@ -101,6 +101,7 @@ akk <- akk %>%
 #Re-order phenotype order
 akk <- akk %>%
   mutate(Phenotype = factor(Genotype, levels = Genotype_order))
+
 
 #Plot
 akkPlot <- ggplot(akk, aes(x = Genotype, y = count, fill = taxon)) +
