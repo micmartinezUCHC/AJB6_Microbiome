@@ -15,7 +15,8 @@ library(ggh4x)
 library(roxygen2)
 
 #----------Set working directory
-setwd("/Users/mikemartinez/Desktop/uBiome/")
+setwd("/Users/mikemartinez/Desktop/uBiome_MM/")
+parentDir <- file.path("/Users/mikemartinez/Desktop/uBiome_MM/")
 
 #-----------Read in the microbiome data
 raw <- read.csv("/Users/mikemartinez/Desktop/AJB6_Microbiome/Data/all_shoreline_data_copy.csv",
@@ -31,31 +32,31 @@ tax_levels <- unique(raw$taxlevel)[-1]
 names(tax_levels) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain")
 tax_levels <- as.data.frame(tax_levels)
 tax_levels$taxonomy <- rownames(tax_levels)
+taxonomic_levels <- tax_levels$taxonomy
 
 #----------Initialize empty lists
 taxonomy_dfs <- list() #Holds the raw counts for each taxonomic level
 long_dfs <- list() #Holds the counts for each taxonomic level pivoted in long format
 relative_abundance <- list() #Holds the relative abundances for each taxonomic level in long format
 
-
 #---------------------------------------------#
 ###############################################
 #####----------Declare functions----------#####
 ###############################################
 #---------------------------------------------#
-  #'Function to calculate relative abundances
-  #'@counts a dataframe where column 1 is taxa names at a given taxonomic level followed by raw counts for all samples
-  #'@relabund return value is a data frame containing the relative abundances of each taxa provided in the input df
-  #Function to calculate relative abundance
+#'Function to calculate relative abundances
+#'@counts a dataframe where column 1 is taxa names at a given taxonomic level followed by raw counts for all samples
+#'@relabund return value is a data frame containing the relative abundances of each taxa provided in the input df
+#Function to calculate relative abundance
 relAbund <- function(counts) {
   sums <- rowSums(counts[,2:ncol(counts)]) + 0.01
   relabund <- counts[,2:ncol(counts)]/sums
   return(relabund)
 }
 
-  #'Function to calculate top 12 most frequent taxa
-  #'@relabund a relative abundance data frame that has been pivoted to long format
-  #'@freq a data frame where column 1 is the taxa name and column 2 is the mean frequency of that taxa
+#'Function to calculate top 12 most frequent taxa
+#'@relabund a relative abundance data frame that has been pivoted to long format
+#'@freq a data frame where column 1 is the taxa name and column 2 is the mean frequency of that taxa
 meanFreq <- function(relabund) {
   freq <- relabund %>%
     group_by(Sample_ID, taxon) %>%
@@ -73,10 +74,10 @@ meanFreq <- function(relabund) {
   return(as.data.frame(freq))
 }
 
-  #'Function for relative abundance barplots
-  #'@x a data frame of relative abundances only for the most frequent taxa
-  #'@tax_level the taxonomic level you are plotting
-  #'@taxa_order the desired order of the taxa you are plotting (decreasing mean frequency, as a factor)
+#'Function for relative abundance barplots
+#'@x a data frame of relative abundances only for the most frequent taxa
+#'@tax_level the taxonomic level you are plotting
+#'@taxa_order the desired order of the taxa you are plotting (decreasing mean frequency, as a factor)
 barplot <- function(x, tax_level, taxa_order) {
   Age_order <- c("8 Weeks", "20 Weeks")
   phenotype_order <- c("WT", "KO")
@@ -104,9 +105,9 @@ barplot <- function(x, tax_level, taxa_order) {
   ggsave(paste(tax_level, "RelAbund_Barplot.pdf", sep = "_"), barplot, width = 12, height = 8)
 }
 
-  #'Function to test for significance at the taxa level
-  #'@x a relative abundance data frame
-  #'@significance return value of significant taxa at a BH-corrected pvalue of 0.05
+#'Function to test for significance at the taxa level
+#'@x a relative abundance data frame
+#'@significance return value of significant taxa at a BH-corrected pvalue of 0.05
 significance <- function(x){
   significant <- x %>%
     nest(data = -taxon) %>%
@@ -119,9 +120,9 @@ significance <- function(x){
   return(significant)
 }
 
-  #'Function to order the significant taxa from smallest padj value to largest
-  #'@sigTaxa an input dataframe of the significant taxa
-  #'@top12 a return value of the ordered top 12 taxa
+#'Function to order the significant taxa from smallest padj value to largest
+#'@sigTaxa an input dataframe of the significant taxa
+#'@top12 a return value of the ordered top 12 taxa
 topSig <- function(sigTaxa) {
   #Order the significant taxa from lowest p.adj value to highest
   sigTaxaOrdered <- sigTaxa[order(sigTaxa$p.adj, decreasing = FALSE),]
@@ -132,18 +133,18 @@ topSig <- function(sigTaxa) {
   return(top12)
 }
 
-  #'Function to subset the significant taxa from the relative abundance data frames
-  #'@sigTaxaOrderedTop an input vector of the top 12 significant taxa names
-  #'@relAbundDF a data frame of unfiltered relative abundances in long format
-  #'@significantSubset a return value of a long pivoted data frame only containing relative abundances for the top 12 significant taxa
+#'Function to subset the significant taxa from the relative abundance data frames
+#'@sigTaxaOrderedTop an input vector of the top 12 significant taxa names
+#'@relAbundDF a data frame of unfiltered relative abundances in long format
+#'@significantSubset a return value of a long pivoted data frame only containing relative abundances for the top 12 significant taxa
 subsetSig <- function(sigTaxaOrderedTop, relAbundDF) {
   significantSubset <- relAbundDF[relAbundDF$taxon %in% sigTaxaOrderedTop,]
   return(significantSubset)
 }
 
-  #'Function to plot the top 12 most significant taxa and their relative abundances
-  #'@x a dataframe of the subsetted taxa and their relative abundances
-  #'@tax_level the level of taxonomy being plotted
+#'Function to plot the top 12 most significant taxa and their relative abundances
+#'@x a dataframe of the subsetted taxa and their relative abundances
+#'@tax_level the level of taxonomy being plotted
 plotSig <- function(x, tax_level) {
   Age_order <- c("8 Weeks", "20 Weeks")
   phenotype_order <- c("WT", "KO")
@@ -175,20 +176,29 @@ plotSig <- function(x, tax_level) {
 ###############################################
 #---------------------------------------------#
 
+#----------Create a vector of output directories for each taxonomic level
+outDirs <- list()
+for (tax_level in seq_along(taxonomic_levels)){
+  output_dir <- file.path("/Users/mikemartinez/Desktop/uBiome_MM", taxonomic_levels[tax_level])
+  outDirs[[tax_level]] <- output_dir
+}
 
 #----------For each taxonomic level, subset the raw counts to only include the i-th taxonomic level
 for (i in 1:nrow(tax_levels)) {
-  print(tax_levels$taxonomy[i])
-  print(i)
+  #Create directory for each taxonomic level
+  dir.create(outDirs[[i]])
   temp <- raw[raw$taxlevel == i,]
   taxonomy_dfs[[i]] <- temp
+  write.csv(temp, file = paste(outDirs[[i]], paste(tax_levels$taxonomy[i], "Counts.csv", sep = "_"), sep = "/"))
+  
+  #Reset working directory to parent directory
+  setwd(parentDir)
 }
-
 
 #----------Iterate over the taxonomy_dfs list and pivot longer, merge metadata, and store to list
 for(df in 1:length(taxonomy_dfs)) {
   
-  write.csv(taxonomy_dfs[[df]], file = paste(tax_levels$taxonomy[df], "Counts.csv", sep = "_"))
+  #Get just the taxa names and counts columns
   counts <- taxonomy_dfs[[df]][,5:96] #Only the counts columns
   names <- counts$taxon #Taxon names to append as a new column in the abundances df
   
@@ -211,13 +221,21 @@ for(df in 1:length(taxonomy_dfs)) {
 
 #----------Iterate over the list including metadata-including long dataframes and write as a csv
 for (long_df in 1:length(long_dfs)) {
-  write.csv(long_dfs[[long_df]], file = paste(tax_levels$taxonomy[long_df], "Long_meta.csv", sep = "_"))
+  
+  #Set working directory for specified taxonomic level and write the Long.Meta data to a csv file
+  setwd(outDirs[[long_df]])
+  write.csv(long_dfs[[long_df]], file = paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "Long.Meta.csv", sep = "_"), sep = "/"))
+  
+  #Reset parent directory
+  setwd(parentDir)
 }
-
 
 #----------Iterate through the list and get the relative abundance dataframes to plot relative abundance barplots
 for (long_df in 2:length(relative_abundance)) {
-  write.csv(relative_abundance[[long_df]], file = paste(tax_levels$taxonomy[long_df], "RelAbund.csv", sep = "_"))
+  
+  #Set working directory for specified taxonomic level and write the RelAbund data to a csv file
+  setwd(outDirs[[long_df]])
+  write.csv(relative_abundance[[long_df]], file = paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "RelAbund.csv", sep = "_"), sep = "/"))
   
   #Get the relative abundance data frame for the given taxonomic level and remove instances of "Unknown"
   rawRelativeAbundance <- relative_abundance[[long_df]]
@@ -226,7 +244,7 @@ for (long_df in 2:length(relative_abundance)) {
   
   #Test for significance of every taxa
   significant_taxa <- significance(abundances)
-  write.csv(significant_taxa, file = paste(tax_levels$taxonomy[long_df], "SignificantTaxa.csv", sep = "_"))
+  write.csv(significant_taxa, file = paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "SignificantTaxa.csv", sep = "_"), sep = "/"))
   
   #Run the frequencies function and take the top 12 frequencines (often times, 1 of them is "Unknown")
   frequencies <- as.data.frame(meanFreq(abundances))
@@ -246,17 +264,15 @@ for (long_df in 2:length(relative_abundance)) {
     #Order, subset, and plot the top 12 most significant taxa
     top12SignificantTaxa <- plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
     
+    #Reset parent directory
+    setwd(parentDir)
+    
   } else {
-    next
+    
+    #Reset parent directory
+    setwd(parentDir)
   }
 }
-
-
-
-
-
-
-
 
 #Pie chart for F/B ratio between groups
 #Read in the phylum long relative abundance data
@@ -288,6 +304,3 @@ for (group in unique_groups) {
 FBRatio <- cowplot::plot_grid(pieChart_list[["AJ_WT"]], pieChart_list[["AJ_KO"]], pieChart_list[["B6_WT"]], pieChart_list[["B6_KO"]])
 FBRatio
 ggsave("FB_ratio.pdf", FBRatio, width = 12, height = 8)
-
-
-
