@@ -93,16 +93,22 @@ barplot <- function(x, tax_level, taxa_order) {
   barplot <- ggplot(x, (aes(x = Sample_ID, y = RelAbund))) +
     geom_bar(aes(fill = taxon), stat = "identity", position = "fill", width = 1) +
     scale_fill_brewer(palette = "Paired") +
-    theme(axis.text.x = element_text(angle = 90, size = 4.5),
-          strip.text = element_text(face = "bold")) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          strip.text = element_text(face = "bold", size = 12)) +
     facet_nested_wrap(~Strain + Age + Phenotype, nrow = 1, scale = "free_x", 
                       strip.position = "top") +
     scale_y_continuous(name = "Relative Abundance",
                        labels = scales::percent) +
     theme(strip.background = element_rect(color = "black", fill = "lightgray"),
           panel.spacing = unit(0.2, "lines")) +
+    theme(legend.text = element_text(size = 12)) +
+    theme(plot.title = element_text(size = 16)) +
+    theme(text = element_text(family = "Helvetica")) +
     geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), fill = NA, color ="black") +
-    labs(title = paste(tax_levels$taxonomy[long_df], "Level Relative Abundances", sep = " "))
+    labs(x = NULL,
+         title = paste(tax_levels$taxonomy[long_df], "Level Relative Abundances", sep = " "))
   ggsave(paste(tax_level, "RelAbund_Barplot.pdf", sep = "_"), barplot, width = 12, height = 8)
 }
 
@@ -158,16 +164,22 @@ plotSig <- function(x, tax_level) {
   barplot <- ggplot(x, (aes(x = Sample_ID, y = RelAbund))) +
     geom_bar(aes(fill = taxon), stat = "identity", position = "fill", width = 1) +
     scale_fill_brewer(palette = "Paired") +
-    theme(axis.text.x = element_text(angle = 90, size = 4.5),
-          strip.text = element_text(face = "bold")) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          strip.text = element_text(face = "bold", size = 12)) +
     facet_nested_wrap(~Strain + Age + Phenotype, nrow = 1, scale = "free_x", 
                       strip.position = "top") +
     scale_y_continuous(name = "Relative Abundance",
                        labels = scales::percent) +
     theme(strip.background = element_rect(color = "black", fill = "lightgray"),
           panel.spacing = unit(0.2, "lines")) +
+    theme(legend.text = element_text(size = 12)) +
+    theme(plot.title = element_text(size = 16)) +
+    theme(text = element_text(family = "Helvetica")) +
     geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), fill = NA, color ="black") +
-    labs(title = paste(tax_levels$taxonomy[long_df], "Significant Taxa", sep = " "))
+    labs(x = NULL, 
+         title = paste(tax_levels$taxonomy[long_df], "Significant Taxa", sep = " "))
   ggsave(paste(tax_level, "Significant_Barplot.pdf", sep = "_"), barplot, width = 12, height = 8)
 }
 
@@ -204,7 +216,7 @@ plotAlpha <- function(x, tax_level) {
     mutate(Age = factor(Age, levels = Age_order))
   x <- x %>%
     mutate(Phenotype = factor(Phenotype, levels = phenotype_order))
- 
+  
   Shannons_boxplot <- ggplot(alphaDiv, aes(x = Strain, y = Shannon, fill = Strain)) +
     geom_boxplot(outlier.shape = 1, outlier.size = 2) +
     geom_point(size = 0.3, position = "jitter") +
@@ -216,7 +228,7 @@ plotAlpha <- function(x, tax_level) {
     theme(legend.position = "bottom")
   ggsave(paste(tax_level, "Shannon.pdf", sep = "_"), Shannons_boxplot, width = 12, height = 8)
   
-
+  
   Simpsons_boxplot <- ggplot(alphaDiv, aes(x = Strain, y = Simpson, fill = Strain)) +
     geom_boxplot(outlier.shape = 1, outlier.size = 2) +
     geom_point(size = 0.3, position = "jitter") +
@@ -263,7 +275,7 @@ for(df in 1:length(taxonomy_dfs)) {
   
   #Set working directory
   setwd(outDirs[[df]])
-
+  
   #Get just the taxa names and counts columns
   counts <- taxonomy_dfs[[df]][,5:96] #Only the counts columns
   names <- counts$taxon #Taxon names to append as a new column in the abundances df
@@ -302,7 +314,7 @@ for(df in 1:length(taxonomy_dfs)) {
   
   #Reset parent directory
   setwd(parentDir)
-
+  
 }
 
 #----------Iterate over the list including metadata-including long dataframes and write as a csv
@@ -349,7 +361,7 @@ for (long_df in 2:length(relative_abundance)) {
     
     #Order, subset, and plot the top 12 most significant taxa
     plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
-
+    
     #Reset parent directory
     setwd(parentDir)
     
