@@ -15,8 +15,8 @@ library(ggh4x)
 library(roxygen2)
 
 #----------Set working directory
-setwd("/Users/mikemartinez/Desktop/uBiome_MM/")
-parentDir <- file.path("/Users/mikemartinez/Desktop/uBiome_MM/")
+setwd("/Users/mikemartinez/Desktop/AJB6_Microbiome/uBiome/")
+parentDir <- file.path("/Users/mikemartinez/Desktop/AJB6_Microbiome/uBiome/")
 
 #-----------Read in the microbiome data
 raw <- read.csv("/Users/mikemartinez/Desktop/AJB6_Microbiome/Data/all_shoreline_data_copy.csv",
@@ -179,7 +179,8 @@ plotSig <- function(x, tax_level) {
 #----------Create a vector of output directories for each taxonomic level
 outDirs <- list()
 for (tax_level in seq_along(taxonomic_levels)){
-  output_dir <- file.path("/Users/mikemartinez/Desktop/uBiome_MM", taxonomic_levels[tax_level])
+  output_dir <- file.path("/Users/mikemartinez/Desktop/AJB6_Microbiome/uBiome", taxonomic_levels[tax_level])
+  print(output_dir)
   outDirs[[tax_level]] <- output_dir
 }
 
