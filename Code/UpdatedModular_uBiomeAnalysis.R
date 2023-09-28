@@ -79,6 +79,7 @@ meanFreq <- function(relabund) {
 #'@tax_level the taxonomic level you are plotting
 #'@taxa_order the desired order of the taxa you are plotting (decreasing mean frequency, as a factor)
 barplot <- function(x, tax_level, taxa_order) {
+  
   Age_order <- c("8 Weeks", "20 Weeks")
   phenotype_order <- c("WT", "KO")
   
@@ -170,6 +171,67 @@ plotSig <- function(x, tax_level) {
   ggsave(paste(tax_level, "Significant_Barplot.pdf", sep = "_"), barplot, width = 12, height = 8)
 }
 
+
+#'Function to calculate alpha diversity metrics
+#'@x is a dataframe of raw counts in the long format
+richness <- function(x){
+  sum(x > 0)
+}
+
+#'Function to calculate Shannon alpha diversity metric
+#'@x is a dataframe of raw counts in the long format
+shannon <- function(x){
+  rabund <- x[x>0]/sum(x)
+  -sum(rabund * log(rabund))
+}
+
+#'Function to calculate Simpson alpha diversity metric
+#'@x is a dataframe of raw counts in the long format
+simpson <- function(x){
+  n <- sum(x)
+  sum(x * (x-1) / (n * (n-1)))
+}
+
+plotAlpha <- function(x, tax_level) {
+  
+  alphaDiv <- x %>%
+    group_by(Phenotype)
+  
+  Age_order <- c("8 Weeks", "20 Weeks")
+  phenotype_order <- c("WT", "KO")
+  
+  x <- x %>%
+    mutate(Age = factor(Age, levels = Age_order))
+  x <- x %>%
+    mutate(Phenotype = factor(Phenotype, levels = phenotype_order))
+ 
+  Shannons_boxplot <- ggplot(alphaDiv, aes(x = Strain, y = Shannon, fill = Strain)) +
+    geom_boxplot(outlier.shape = 1, outlier.size = 2) +
+    geom_point(size = 0.3, position = "jitter") +
+    facet_nested_wrap(~Age + Phenotype, nrow = 1, scale = "free_x", 
+                      strip.position = "top") +
+    stat_compare_means(paired = FALSE, label = "p.format") +
+    labs(title = paste(tax_levels$taxonomy[long_df], "Shannon Diversity", sep = " ")) +
+    theme_bw() +
+    theme(legend.position = "bottom")
+  ggsave(paste(tax_level, "Shannon.pdf", sep = "_"), Shannons_boxplot, width = 12, height = 8)
+  
+
+  Simpsons_boxplot <- ggplot(alphaDiv, aes(x = Strain, y = Simpson, fill = Strain)) +
+    geom_boxplot(outlier.shape = 1, outlier.size = 2) +
+    geom_point(size = 0.3, position = "jitter") +
+    facet_nested_wrap(~Age + Phenotype, nrow = 1, scale = "free_x", 
+                      strip.position = "top") +
+    stat_compare_means(paired = FALSE, label = "p.format") +
+    labs(title = paste(tax_levels$taxonomy[long_df], "Simpson Diversity", sep = " ")) +
+    theme_bw() +
+    theme(legend.position = "bottom")
+  ggsave(paste(tax_level, "Simpson.pdf", sep = "_"), Simpsons_boxplot, width = 12, height = 8)
+  
+}
+
+
+
 #---------------------------------------------#
 ###############################################
 #----------       Code Blocks       ----------#
@@ -218,6 +280,23 @@ for(df in 1:length(taxonomy_dfs)) {
     pivot_longer(-taxon, names_to = "Sample_ID", values_to = "count") 
   long.merged <- merge(long, meta, by = "Sample_ID", all.y = TRUE)
   long_dfs[[df]] <- long.merged
+  write.csv(long.merged, file = paste(outDirs[[df]], paste(tax_levels$taxonomy[df], "long.meta.csv", sep = "_"), sep = "/"))
+  
+  
+  #Calculate alpha diversity metrics using the alpha diversity functions
+  alpha <- long.merged %>%
+    group_by(Sample_ID) %>%
+    summarize(sobs = richness(count),
+              Shannon = shannon(count),
+              Simpson = simpson(count))
+  
+  #Merge alpha diversity metrics to counts and metadata and write to a csv file
+  merged.alpha <- merge(meta, alpha, by = "Sample_ID", all.y = TRUE)
+  write.csv(merged.alpha, file = paste(outDirs[[df]], paste(tax_levels$taxonomy[df], "AlphaDiversity.csv", sep = "_"), sep = "/"))
+  
+  #Plot alpha diversity plots using function
+  plotAlpha(merged.alpha, tax_levels$taxonomy[df])
+
 }
 
 #----------Iterate over the list including metadata-including long dataframes and write as a csv
@@ -263,17 +342,33 @@ for (long_df in 2:length(relative_abundance)) {
   if (nrow(significant_taxa) > 12) {
     
     #Order, subset, and plot the top 12 most significant taxa
-    top12SignificantTaxa <- plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
-    
+    plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
+
     #Reset parent directory
     setwd(parentDir)
     
   } else {
-    
-    #Reset parent directory
     setwd(parentDir)
+    next
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #Pie chart for F/B ratio between groups
 #Read in the phylum long relative abundance data
