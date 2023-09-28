@@ -261,6 +261,9 @@ for (i in 1:nrow(tax_levels)) {
 #----------Iterate over the taxonomy_dfs list and pivot longer, merge metadata, and store to list
 for(df in 1:length(taxonomy_dfs)) {
   
+  #Set working directory
+  setwd(outDirs[[df]])
+
   #Get just the taxa names and counts columns
   counts <- taxonomy_dfs[[df]][,5:96] #Only the counts columns
   names <- counts$taxon #Taxon names to append as a new column in the abundances df
@@ -296,6 +299,9 @@ for(df in 1:length(taxonomy_dfs)) {
   
   #Plot alpha diversity plots using function
   plotAlpha(merged.alpha, tax_levels$taxonomy[df])
+  
+  #Reset parent directory
+  setwd(parentDir)
 
 }
 
