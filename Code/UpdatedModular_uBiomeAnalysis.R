@@ -252,16 +252,19 @@ plotAlpha <- function(x, tax_level) {
 
 #----------Create a vector of output directories for each taxonomic level
 outDirs <- list()
+cat("#----- GENERATING OUTPUT DIRECTORIES -----#")
 for (tax_level in seq_along(taxonomic_levels)){
   output_dir <- file.path("/Users/mikemartinez/Desktop/AJB6_Microbiome/uBiome", taxonomic_levels[tax_level])
-  print(output_dir)
   outDirs[[tax_level]] <- output_dir
 }
+cat("Completed!")
 
 #----------For each taxonomic level, subset the raw counts to only include the i-th taxonomic level
 for (i in 1:nrow(tax_levels)) {
   #Create directory for each taxonomic level
   dir.create(outDirs[[i]])
+  cat(paste(outDirs[[i]], "created successfully", sep = " "))
+  cat("\n")
   temp <- raw[raw$taxlevel == i,]
   taxonomy_dfs[[i]] <- temp
   write.csv(temp, file = paste(outDirs[[i]], paste(tax_levels$taxonomy[i], "Counts.csv", sep = "_"), sep = "/"))
@@ -271,6 +274,7 @@ for (i in 1:nrow(tax_levels)) {
 }
 
 #----------Iterate over the taxonomy_dfs list and pivot longer, merge metadata, and store to list
+cat("#----- ISOLATING COUNTS AT EACH TAXONOMIC LEVEL, CONVERTING COUNTS TO RELATIVE ABUNDANCES, ALPHA DIVERSITY CALCS -----#")
 for(df in 1:length(taxonomy_dfs)) {
   
   #Set working directory
@@ -281,8 +285,11 @@ for(df in 1:length(taxonomy_dfs)) {
   names <- counts$taxon #Taxon names to append as a new column in the abundances df
   
   #Run the relative abundance function and pivot longer
+  cat(paste("Calculating relative abundance at the ", tax_levels$taxonomy[long_df], "level", sep = " "))
+  cat("\n")
   abundances <- relAbund(counts) #Run function
   abundances$taxon <- names #Append names to new column
+  cat("-----------Done! \n")
   
   #Pivot longer and merge metadata
   abund.long <- abundances %>%
@@ -299,6 +306,8 @@ for(df in 1:length(taxonomy_dfs)) {
   
   
   #Calculate alpha diversity metrics using the alpha diversity functions
+  cat(paste("Calculating alpha diversity at the", tax_levels$taxonomy[long_df], "level", sep = " "))
+  cat("\n")
   alpha <- long.merged %>%
     group_by(Sample_ID) %>%
     summarize(sobs = richness(count),
@@ -310,13 +319,18 @@ for(df in 1:length(taxonomy_dfs)) {
   write.csv(merged.alpha, file = paste(outDirs[[df]], paste(tax_levels$taxonomy[df], "AlphaDiversity.csv", sep = "_"), sep = "/"))
   
   #Plot alpha diversity plots using function
+  cat(paste("Plotting Shannon and Simpson diversity at the", tax_levels$taxonomy[long_df], "level", sep = " "))
+  cat("\n")
   plotAlpha(merged.alpha, tax_levels$taxonomy[df])
+  cat("-----------Done! \n")
   
   #Reset parent directory
   setwd(parentDir)
   
 }
+cat("Completed!")
 
+cat("#----- APPENDING METADATA AND WRITING DATA TO OUTPUT DIRECTORIES -----#")
 #----------Iterate over the list including metadata-including long dataframes and write as a csv
 for (long_df in 1:length(long_dfs)) {
   
@@ -327,7 +341,9 @@ for (long_df in 1:length(long_dfs)) {
   #Reset parent directory
   setwd(parentDir)
 }
+cat("Completed!")
 
+cat("#----- PLOTTING RELATIVE ABUNDANCE BARPLOTS, TESTING FOR SIGNIFICANCE, PLOTTING SIGNIFICANCE -----#")
 #----------Iterate through the list and get the relative abundance dataframes to plot relative abundance barplots
 for (long_df in 2:length(relative_abundance)) {
   
@@ -340,10 +356,36 @@ for (long_df in 2:length(relative_abundance)) {
   rawRelativeAbundance <- rawRelativeAbundance[!grepl("unknown", rawRelativeAbundance$taxon, ignore.case = TRUE), ]
   abundances <- rawRelativeAbundance
   
-  #Test for significance of every taxa
-  significant_taxa <- significance(abundances)
-  write.csv(significant_taxa, file = paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "SignificantTaxa.csv", sep = "_"), sep = "/"))
+  #Check if the SignificantTaxa.csv file exists
+  file_path <- paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "SignificantTaxa.csv", sep = "_"), sep = "/")
+  if (file.exists(file_path)) {
+    cat(paste("SignificantTaxa file already exist at the", tax_levels$taxonomy[long_df], "level-----ANOVA will not be re-ran", sep = " "))
+    cat("\n")
+    next
+  } else {
   
+    #Test for significance of every taxa
+    cat(paste("Testing for significance at the", tax_levels$taxonomy[long_df], "level using ANOVA", sep = " "))
+    cat("\n")
+    significant_taxa <- significance(abundances)
+    write.csv(significant_taxa, file = paste(outDirs[[long_df]], paste(tax_levels$taxonomy[long_df], "SignificantTaxa.csv", sep = "_"), sep = "/"))
+    cat("-----------Done! \n")
+    
+    #If there are more than 12 significant hits, run the functions
+    if (nrow(significant_taxa) > 12) {
+      cat(paste("Plotting relative abundance of top 12 most significant taxa at the", tax_levels$taxonomy[long_df], "level", sep = " "))
+      cat("\n")
+      #Order, subset, and plot the top 12 most significant taxa
+      plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
+      cat("-----------Done! \n")
+      
+      #Reset parent directory
+      setwd(parentDir)
+    } else {
+      setwd(parentDir)
+      next
+    }
+  }  
   #Run the frequencies function and take the top 12 frequencines (often times, 1 of them is "Unknown")
   frequencies <- as.data.frame(meanFreq(abundances))
   top_freq_taxa <- head(frequencies,12)
@@ -354,22 +396,13 @@ for (long_df in 2:length(relative_abundance)) {
   print(length(unique(freq_abundances$taxon)))
   
   #Plot: supply a df, tax level, and factor order for the legend
+  cat(paste("Plotting relative abundance of top 12 most frequent taxa at the", tax_levels$taxonomy[long_df], "level", sep = " "))
+  cat("\n")
   barplot(freq_abundances, tax_levels$taxonomy[long_df], taxa_keep)
-  
-  #If there are more than 12 significant hits, run the functions
-  if (nrow(significant_taxa) > 12) {
-    
-    #Order, subset, and plot the top 12 most significant taxa
-    plotSig(subsetSig(topSig(significant_taxa), relative_abundance[[long_df]]),tax_levels$taxonomy[long_df])
-    
-    #Reset parent directory
-    setwd(parentDir)
-    
-  } else {
-    setwd(parentDir)
-    next
-  }
+  cat("-----------Done! \n")
 }
+cat("Completed!")
+
 
 
 
